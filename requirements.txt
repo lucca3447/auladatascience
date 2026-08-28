@@ -1,0 +1,13 @@
+# Manipulacao e Analise de Dados
+pandas>=2.2.0
+numpy>=1.26.0
+
+# Visualizacao de Dados
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.18.0
+
+# Suporte a Notebooks Jupyter
+nbformat>=5.9.0
+nbclient>=0.9.0
+ipykernel>=6.29.0
