@@ -34,6 +34,7 @@ Ao invés de uma abordagem tradicional **reativa** (agir apenas quando o colabor
 | [`ENTREGA_DESAFIO_INTEGRADOR_SQUAD4.md`](./ENTREGA_DESAFIO_INTEGRADOR_SQUAD4.md) | **Documento executivo oficial da entrega** contendo todos os 7 entregáveis do edital da professora, a matriz ética e de riscos, a resposta ao Desafio Adicional e o roteiro do pitch de apresentação. |
 | [`MFG10YearTerminationData.csv`](./MFG10YearTerminationData.csv) | Base histórica de 10 anos de colaboradores do varejo utilizada para modelagem. |
 | [`requirements.txt`](./requirements.txt) | Dependências Python para execução do projeto. |
+| [`legado/`](./legado/) | Diretório contendo versões anteriores e estudos intermediários das etapas do curso. |
 
 ---
 
