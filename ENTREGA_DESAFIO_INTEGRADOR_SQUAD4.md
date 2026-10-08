@@ -1,263 +1,192 @@
-# 🤖 Desafio Integrador: AI & Data-Driven Challenge
-## 🟥 Squad 4 — Gestão de Pessoas & People Analytics
-### Projeto: Talent Retention AI — Plataforma Inteligente de Prevenção de Turnover
+# Desafio Integrador — People Analytics
+## Plataforma Inteligente de Prevenção de Turnover
 
----
+**Squad 4:** Gabriel Maia, João Lucca, Kevin Mascarenhas, Marina Gonçalves e Samuel Paulo
+**Disciplina:** Data Science
+**Base de dados:** `MFG10YearTerminationData.csv` (registros anuais de colaboradores de 2006 a 2015)
+**Notebook com todo o código:** [`People Analytics Entrega Geral - Definitiva.ipynb`](./People%20Analytics%20Entrega%20Geral%20-%20Definitiva.ipynb)
 
-### 👥 Ficha Técnica do Squad 4
-* **Integrantes**: Gabriel Maia, João Lucca, Kevin Mascarenhas, Marina Gonçalves e Samuel Paulo
-* **Disciplina**: Data Science & AI Integrator
-* **Papel**: Consultoria Especializada em Inteligência Artificial aplicada a Recursos Humanos
-* **Dataset**: `MFG10YearTerminationData.csv` (Histórico de 10 anos de colaboradores — 2006 a 2015)
-* **Notebook Principal**: [`People_Analytics_Entrega_Geral.ipynb`](./People_Analytics_Entrega_Geral.ipynb)
+Este documento resume a nossa solução. Os detalhes, gráficos e números estão no notebook.
 
----
-
-## 📑 Sumário Executivo dos Entregáveis
-
-```
-Dados de RH ──> Pré-processamento ──> XGBoost (Preditiva) ──> Score de Risco ──> Co-piloto GenAI ──> Parecer 1:1 + PDI ──> Gestor Atua Preventivamente
-```
-
-A solução **Talent Retention AI** integra Machine Learning clássico supervisionado (XGBoost calibrado) a um Co-piloto Generativo especialista em People Analytics. O objetivo central é transformar uma gestão de desligamentos tradicionalmente **reativa** (que só age após o colaborador pedir demissão) em um processo **preventivo, humanizado e estratégico**, gerando economia financeira e preservando o capital intelectual da empresa.
+**Resumo da solução:** usamos o histórico de colaboradores para treinar um modelo (XGBoost) que dá uma nota de risco de pedido de demissão para cada colaborador. Com essa nota, o RH monta uma lista de prioridade. A proposta é que um co-piloto de IA generativa use a nota e os fatores do modelo para preparar o gestor para uma conversa 1:1 com quem está na lista. A ideia é sair de uma postura reativa (agir só depois do pedido de demissão) para uma postura preventiva.
 
 ---
 
 ## 1. Problema de Negócio
 
-### 1.1 Qual problema está sendo resolvido?
-O alto índice de **turnover voluntário** (pedidos espontâneos de demissão), especialmente concentrado na operação de lojas físicas (frente de caixa e atendimento ao cliente), em colaboradores jovens e nos primeiros dois anos de empresa.
+**Qual problema queremos resolver?**
+Os pedidos de demissão em uma rede varejista. Na análise dos dados, eles se concentram nas lojas, principalmente entre caixas e atendentes, em pessoas jovens e nos primeiros anos de empresa.
 
-### 1.2 Quem são os usuários da solução?
-1. **Business Partners (BPs) de Gente & Gestão (RH):** Utilizam a visão tática e analítica para acompanhar os indicadores de risco por loja, departamento e cargo, desenhando políticas corporativas de retenção.
-2. **Gestores de Loja e Supervisores de Atendimento:** Liderança operacional que recebe os alertas preventivos, o roteiro estruturado para reuniões 1:1 e os Planos de Desenvolvimento Individual (PDI) customizados pelo Co-piloto.
+**Quem usaria a solução?**
+* **BPs de Gente & Gestão (RH):** acompanham o risco por loja, departamento e cargo e organizam os programas de retenção.
+* **Gestores de loja e supervisores:** recebem a lista de prioridade e conversam com os colaboradores.
 
-### 1.3 Qual decisão precisa ser melhorada?
-* **Cenário Atual (Decisão Reativa):** O gestor descobre a insatisfação do colaborador quando ele entrega o aviso prévio. A empresa gasta com rescisão e corre para abrir uma vaga emergencial no mercado.
-* **Cenário Otimizado (Decisão Preventiva):** O gestor identifica com meses de antecedência os sinais de saturação e risco de saída, realizando conversas de alinhamento de carreira e ajustando tarefas antes que o colaborador decida buscar outro emprego.
+**Qual decisão queremos melhorar?**
+* **Hoje (reativa):** o gestor só fica sabendo da insatisfação quando recebe o pedido de demissão e precisa abrir uma vaga às pressas.
+* **Com a solução (preventiva):** o gestor sabe com antecedência quem tem mais risco e pode conversar sobre carreira e rotina antes que a pessoa decida sair.
 
-### 1.4 Qual impacto o problema gera para a organização?
-* **Custos Diretos:** Gastos com rescisão, publicação de vagas, consultorias de seleção, exames admissionais e integrações.
-* **Custos Indiretos:** Queda na qualidade do atendimento de loja, aumento de filas e erros de caixa devido a funcionários inexperientes, sobrecarga dos colegas remanescentes e perda de know-how interno.
+**Qual o impacto do problema?**
+Custos de rescisão, recrutamento e treinamento de quem entra, além de perda de experiência no atendimento e sobrecarga de quem fica.
 
 ---
 
 ## 2. Dados
 
-### 2.1 Dados necessários e fontes
-* **Histórico Cadastral e Funcional:** Idade, data de nascimento, data de admissão, tempo de empresa, cargo (`job_title`), departamento (`department_name`), unidade de negócio (`BUSINESS_UNIT`) e identificação da loja (`store_name`).
-* **Fontes Recomendadas em Produção:** Sistemas de HRIS (ex: Workday, SAP SuccessFactors), sistemas de ponto eletrônico e ERP de folha de pagamento.
+**Dados utilizados:** idade, tempo de empresa, cargo, departamento, unidade de negócio (escritório central ou loja), loja, gênero e situação no ano (ativo ou desligado, com o motivo). Em uma versão real, esses dados viriam do sistema de RH e da folha de pagamento.
 
-### 2.2 Variáveis utilizadas pelo modelo
-* **Numéricas e Temporais:** `age` (idade), `length_of_service` (tempo de serviço), `idade_admissao` (idade calculada no momento da contratação), `faixa_tempo_casa` (agrupamento temporal de maturidade na função), `proporcao_vida_na_empresa` (fração da vida adulta dedicada à empresa).
-* **Categóricas Tratadas via One-Hot Encoding:** `BUSINESS_UNIT` (HEADOFFICE vs STORES), `job_title` (cargos operacionais e de gestão), `department_name` (departamentos) e `gender_short`.
+**Variável alvo:** `desligamento_voluntario`, igual a 1 quando o colaborador pediu demissão naquele ano. Deixamos de fora as aposentadorias (acontecem sempre aos 60 ou 65 anos, então são previsíveis só pela idade) e os layoffs (decisão da empresa, concentrada em 2014 e 2015). Só 0,78% dos registros são pedidos de demissão.
 
-### 2.3 Variável-Alvo (Target)
-* **`desligamento_voluntario` (Binária: 0 ou 1):** Definida como `1` quando o colaborador estava com status `TERMINATED` e o motivo do desligamento (`termreason_desc`) foi registrado como `Resignation` (pedido voluntário de demissão) naquele ano fiscal. Aposentadorias (`Retirement`) e demissões sem justa causa em massa (`Layoff`) foram excluídas do target para manter o foco exclusivo no risco de retenção voluntária.
+**Variáveis usadas no modelo:**
+* Originais: idade e tempo de empresa.
+* Criadas por nós: idade na admissão, faixa de tempo de casa, tamanho da loja no ano e proporção da vida adulta passada na empresa (sugerida com ajuda de IA generativa).
+* Categóricas transformadas com One-Hot Encoding: cargo, departamento, unidade de negócio e gênero.
 
-### 2.4 Qualidade dos dados e tratamentos realizados
-* **Datas disfarçadas de nulos:** A data fictícia `1/1/1900` utilizada no sistema para colaboradores ativos foi tratada para evitar distorções de cálculo.
-* **Erros de digitação (Sanitização):** Correção de inconsistências no cadastro, como a grafia `'Resignaton'` corrigida para `'Resignation'`.
-* **Duplicatas parciais:** Tratamento de colaboradores que possuíam registros duplicados no mesmo ano fiscal devido a transferências de loja.
-* **Forte Desbalanceamento de Classes:** Na base de 10 anos, apenas ~1% a 2% das linhas correspondem a pedidos de demissão em um ano específico, exigindo modelagem balanceada.
+**Problemas de qualidade que tratamos:**
+* A data `1/1/1900` era usada como "sem data de desligamento"; trocamos por valor ausente.
+* O motivo `Resignaton` estava escrito errado (e o departamento `Accounts Receiveable`); corrigimos a grafia.
+* 5 colaboradores tinham dois registros no mesmo ano (um ativo e outro desligado); mantivemos só o de desligamento.
+* A data e o motivo do desligamento revelam a resposta, então não entraram no modelo (evitando vazamento de dados).
 
 ---
 
 ## 3. Modelo de IA Preditiva
 
-### 3.1 Tipo de problema de Machine Learning
-Classificação binária supervisionada com classes fortemente desbalanceadas.
+**Tipo de problema:** classificação binária (pede ou não pede demissão no ano), com classes muito desbalanceadas.
 
-### 3.2 Algoritmo escolhido e justificativa
-* **Algoritmo Selecionado:** **XGBoost Classifier** (comparado contra Decision Tree e Random Forest).
-* **Justificativa:** O XGBoost apresentou o melhor compromisso entre capacidade de aprendizado (*gradient boosting*), controle de overfitting e facilidade de lidar com desbalanceamento severo através do parâmetro nativo `scale_pos_weight`.
+**Modelos comparados:** Árvore de Decisão, Random Forest e XGBoost. Escolhemos o **XGBoost**, que teve a maior PR-AUC na validação cruzada (0,141). O Random Forest ficou muito perto (0,135).
 
-### 3.3 Processo de treinamento e validação
-* **Estratégia Anti-Vazamento:** Divisão entre Treino (80%) e Teste (20%) utilizando **`StratifiedGroupKFold`** agrupado pelo identificador do colaborador (`EmployeeID`). Isso garante que o histórico de um mesmo profissional nunca esteja simultaneamente no treino e no teste.
-* **Tratamento de Desbalanceamento:** Utilização de `scale_pos_weight = 127.3` para penalizar com muito mais severidade os falsos negativos (deixar de prever uma pessoa que de fato pediu demissão).
-* **Calibração de Limiar (Threshold):** Em vez de utilizar o corte arbitrário de 0.50, o limiar de decisão foi ajustado e calibrado para maximizar a área sob a curva de Precisão-Recall (**PR-AUC**), equilibrando sensibilidade e alarmes falsos.
+**Como treinamos e validamos:**
+* Separamos 80% para treino e 20% para teste com `StratifiedGroupKFold`, para que o mesmo colaborador nunca apareça no treino e no teste ao mesmo tempo.
+* Para lidar com o desbalanceamento, usamos `scale_pos_weight = 128` no XGBoost (e `class_weight='balanced'` nos outros modelos).
+* Escolhemos os hiperparâmetros com validação cruzada dentro do treino, olhando a diferença entre treino e validação para controlar o overfitting.
+* Trocamos o limiar padrão de 0,5 por 0,92, que foi o limiar com maior F1 nas previsões fora da amostra do treino. O teste só foi usado no final.
 
-### 3.4 Métricas técnicas obtidas na base de teste
-* **Recall (Sensibilidade):** **~59.7%** (o modelo identifica quase 6 em cada 10 colaboradores que de fato pedirão demissão).
-* **Precision:** **~24.9%** (1 em cada 4 pessoas alertadas pelo modelo pedirá demissão; os outros 3 são colaboradores em fase de adaptação que se beneficiam igualmente da mentoria).
-* **PR-AUC:** **0.18** a **0.19** (significativamente superior à linha de base aleatória de 0.015).
-* **Por que a acurácia foi descartada:** Um modelo ingênuo (*Dummy Classifier*) que prevê que ninguém vai pedir demissão atinge **99.2% de acurácia**, mas é 100% inútil para o negócio.
+**Resultados na base de teste (limiar 0,92):**
 
-### 3.5 Limitações do modelo
-* A base é estática e termina em 2015.
-* Ausência de variáveis dinâmicas de RH: remuneração atualizada, horas extras acumuladas, avaliações de desempenho 9-Box e pesquisa de clima.
+| Métrica | Resultado |
+| :-- | :-- |
+| Recall | 48% (encontrou 37 dos 77 pedidos de demissão) |
+| Precision | 23% (dos 163 apontados, 37 pediram demissão) |
+| F1-Score | 0,31 |
+| ROC-AUC | 0,847 |
+| PR-AUC | 0,179 (um chute aleatório teria 0,008) |
 
----
+Não usamos a acurácia para escolher o modelo: um modelo que nunca prevê pedido de demissão tem 99,2% de acurácia e não encontra ninguém.
 
-## 4. Agente / Co-piloto de IA Generativa
-
-### 4.1 Papel do Co-piloto de IA Generativa
-O Co-piloto atua como um **Consultor Estratégico de People Analytics**. Ele traduz probabilidades frias e importâncias de variáveis em **estratégias práticas e humanizadas de gestão de pessoas**, municiando os líderes com planos de desenvolvimento e roteiros de diálogo.
-
-### 4.2 Informações enviadas para o modelo generativo (Payload)
-O Co-piloto recebe um objeto estruturado em JSON contendo:
-* Perfil profissional do colaborador (Cargo, Departamento, Unidade de Loja, Idade, Idade de Admissão, Tempo de Empresa);
-* Probabilidade de turnover predita pelo XGBoost (ex: 82%);
-* Principais fatores estatísticos identificados pelo modelo (ex: cargo de frente de caixa, menos de 2 anos de casa, faixa etária jovem).
-
-### 4.3 System Prompt com Diretrizes Éticas e de Negócio
-
-```text
-Você é o Talent Retention Copilot, consultor sênior em People Analytics e Gestão de Pessoas.
-Sua função é transformar predições estatísticas de turnover em planos práticos, humanizados e acionáveis para líderes.
-
-DIRETRIZES ÉTICAS E DE NEGÓCIO:
-1. NUNCA sugira demitir, isolar ou retaliar o colaborador. A abordagem deve ser 100% preventiva e de acolhimento.
-2. NUNCA revele na abordagem que o colaborador foi apontado por algoritmo preditivo. Trate como mentoria de rotina.
-3. Evite qualquer viés de gênero ou idade.
-4. Responda ESTRITAMENTE nas 4 seções exigidas:
-   - SEÇÃO 1: Síntese dos Fatores de Risco
-   - SEÇÃO 2: Estratégia de Abordagem do Gestor (Roteiro 1:1)
-   - SEÇÃO 3: Ações Práticas de Retenção
-   - SEÇÃO 4: Sugestão de PDI (Plano de Desenvolvimento Individual - 90 Dias)
-```
-
-### 4.4 Resultado Esperado (Exemplo de Parecer Gerado)
-
-```text
-================================================================================
-                    PARECER DO TALENT RETENTION COPILOT
-================================================================================
-COLABORADOR: Cashier | Customer Service | Loja 20 - Vancouver
-STATUS DO MODELO: ALTO RISCO (82.0% de probabilidade de saída)
-
-1. SÍNTESE DOS FATORES ASSOCIADOS AO RISCO IDENTIFICADO
-O colaborador foi classificado com score de atenção prioritária decorrente de:
-- Período crítico de adaptação (tempo de empresa: 2 anos);
-- Faixa etária jovem (22 anos, admitido aos 20 anos);
-- Cargo de atendimento operacional na ponta do varejo (Cashier);
-- Alocação em loja física (Loja 20 - Vancouver).
-Diagnóstico: Colaboradores nessa posição enfrentam fadiga pela repetitividade do atendimento
-de caixa e costumam buscar posições externas entre 12 e 24 meses se não visualizarem um
-plano de carreira ou novos desafios internos.
-
-2. ESTRATÉGIA DE ABORDAGEM DO GESTOR (ROTEIRO DE CONVERSA 1:1)
-* Objetivo: Criar conexão, escutar desafios diários e traçar horizonte de crescimento.
-* Tom: Acolhedor, empático e de suporte.
-* Abertura: "Oi! Reservei um tempo hoje para conversarmos sobre como você tem se sentido
-  aqui na equipe e quais são os seus objetivos de carreira para os próximos meses."
-* Perguntas-chave:
-  - "O que tem sido mais estimulante e o que tem sido mais desgastante na sua rotina na loja?"
-  - "Qual outra área ou responsabilidade na loja desperta seu interesse?"
-  - "O que nós podemos fazer juntos para apoiar o seu desenvolvimento este ano?"
-* Fechamento: "Quero que saiba que valorizamos muito seu trabalho aqui e vamos construir
-  um plano para você evoluir na rede."
-
-3. SUGESTÕES DE AÇÕES IMEDIATAS DE RETENÇÃO
-* Revezamento de Tarefas: Alternar a escala de caixa com atividades de conferência de
-  mercadorias no estoque ou apoio à supervisão para amenizar o cansaço repetitivo.
-* Mentoria Interna: Designar um líder de turno experiente como padrinho/mentor.
-* Reconhecimento: Elogio formal no mural da loja pelo índice de satisfação de clientes.
-
-4. SUGESTÕES DE PDI (PLANO DE DESENVOLVIMENTO INDIVIDUAL - 90 DIAS)
-* MÊS 1 (Engajamento): Inscrição na trilha corporativa "Gestão de Atendimento e Varejo".
-  Reuniões quinzenais de alinhamento com o gestor.
-* MÊS 2 (Capacitação Prática): 4 horas semanais de Job Shadowing com o Supervisor de Loja.
-  Treinamento em fechamento de caixa e rotinas administrativas.
-* MÊS 3 (Preparação Sucessória): Apresentação de proposta de melhoria de fluxo de atendimento.
-  Inclusão formal no Banco de Talentos para futuras vagas de Subgerente de Loja.
-================================================================================
-```
-
-### 4.5 Como o usuário interage com o Co-piloto
-1. **Notificação Automática:** O BP de RH e o Gestor recebem mensalmente uma lista priorizada de colaboradores em período de atenção.
-2. **Painel Interativo:** O gestor clica no perfil do colaborador e visualiza o parecer completo gerado pelo Co-piloto.
-3. **Registro da Ação:** Após a reunião 1:1, o gestor marca o status da conversa e registra os compromissos acordados no PDI.
+**Limitações:** a base vai só até 2015 e não tem salário, horas extras, avaliação de desempenho nem pesquisa de clima. As notas do modelo também não são probabilidades calibradas; servem para ordenar quem tem mais risco.
 
 ---
 
-## 5. Fluxo Visual da Solução Integrada
+## 4. Co-piloto de IA Generativa (proposta)
 
-```mermaid
-flowchart TD
-    subgraph DADOS ["1. Camada de Dados"]
-        D1["Histórico de RH (10 Anos)"] --> D2["Limpeza, Sanitização e Feature Engineering<br/>(One-Hot, Scaler, idade_admissao, proporcao_vida)"]
-    end
+**Papel do co-piloto:** transformar a nota de risco em uma orientação prática para o gestor: o que pesou no risco, como conduzir a conversa e o que oferecer ao colaborador.
 
-    subgraph PREDITIVA ["2. IA Preditiva (Machine Learning)"]
-        D2 --> M1["Modelo XGBoost Classifier<br/>(scale_pos_weight = 127.3 | Limiar Calibrado)"]
-        M1 --> S1["Score de Risco & Probabilidade<br/>(Recall: 59.7% | Precision: 24.9%)"]
-    end
+**Situação atual:** o co-piloto ainda **não está conectado** a uma IA generativa. No notebook (seção 9), montamos automaticamente, a partir do modelo treinado, tudo o que seria enviado para ela.
 
-    subgraph INTERPRETACAO ["3. Camada de Interpretação"]
-        S1 --> E1["Extração de Fatores Críticos<br/>(Tempo de Casa <= 2 anos, Idade Jovem, Cargo de Loja)"]
-    end
+**Informações enviadas ao co-piloto:**
+* Perfil do colaborador: cargo, departamento, unidade, loja, idade e tempo de empresa (sem nome nem identificador).
+* Nota de risco calculada pelo XGBoost, o limiar de alerta e se a pessoa está em alerta.
+* Os fatores que mais aumentaram o risco daquela pessoa, calculados pelo próprio XGBoost (contribuição de cada variável na previsão).
 
-    subgraph GENERATIVA ["4. Co-piloto de IA Generativa"]
-        E1 --> G1["Montagem de Payload Estruturado (JSON)"]
-        G1 --> G2["Talent Retention Copilot (LLM)<br/>System Prompt com Diretrizes Éticas e Anti-Viés"]
-    end
+Exemplo real gerado no notebook para o colaborador com maior nota da base de teste: caixa do Atendimento ao Cliente, 21 anos, 1 ano de empresa, loja 46 (Victoria), **nota de risco 0,974**. Os fatores que mais pesaram foram o tempo de empresa, a idade, a proporção da vida adulta na empresa e o tamanho da loja.
 
-    subgraph NEGOCIO ["5. Decisão de Negócio e Impacto"]
-        G2 --> P1["Painel do Gestor de Loja / BP de Gente & Gestão"]
-        P1 --> A1["Reunião 1:1 Humanizada (Sem rotulação algorítmica)"]
-        P1 --> A2["Ações de Retenção & PDI de 90 Dias"]
-        A1 --> DEC["Decisão Preventiva: Retenção e Desenvolvimento"]
-        A2 --> DEC
-        DEC --> RES["Resultado de Negócio: Queda de Turnover e Economia Financeira"]
-    end
+**Instruções (prompt) do co-piloto:**
+
+```text
+Você é o co-piloto de retenção de uma rede varejista. Seu papel é ajudar o gestor
+a preparar uma conversa individual (1:1) com um colaborador que o modelo preditivo apontou
+como prioridade.
+
+Regras:
+1. Use apenas as informações do pacote de dados. Não presuma salário, satisfação ou problemas pessoais.
+2. A abordagem deve ser de acolhimento e desenvolvimento. Nunca sugira punição, desligamento ou corte de oportunidades.
+3. Não use a nota de risco como rótulo na conversa: ela serve só para o gestor priorizar quem procurar.
+4. Não trate idade ou gênero como problema do colaborador.
+5. Lembre o gestor de que o modelo erra: a pessoa pode não ter intenção de sair.
+
+Responda em quatro seções:
+1. Síntese dos fatores associados ao risco
+2. Roteiro para a conversa 1:1 (abertura, 3 perguntas e fechamento)
+3. Ações imediatas de retenção
+4. Sugestão de PDI de 90 dias
 ```
+
+**Exemplo do tipo de resposta esperada** (escrito pelo grupo para ilustrar, a partir do exemplo acima):
+
+> **1. Fatores:** pessoa no primeiro ano de empresa, em cargo de entrada no atendimento de uma loja grande. Pelo histórico, esse é o perfil que mais pede demissão.
+>
+> **2. Conversa 1:1:** abrir perguntando como está sendo o primeiro ano na loja. Perguntas: o que tem sido mais difícil na rotina? Que outra área da loja te interessa? O que eu posso fazer para melhorar seu dia a dia? Fechar combinando um próximo encontro.
+>
+> **3. Ações imediatas:** indicar um colega mais experiente como referência, alternar o caixa com outras tarefas quando possível e dar retorno frequente sobre o trabalho.
+>
+> **4. PDI de 90 dias:** mês 1, conversas quinzenais com o gestor; mês 2, acompanhar o supervisor em algumas rotinas; mês 3, conversar sobre próximos passos de carreira na loja.
+
+**Como o gestor usaria:**
+1. Todo mês o modelo calcula a nota dos colaboradores ativos e monta a lista de prioridade de cada loja.
+2. Para cada pessoa da lista, o co-piloto gera a orientação.
+3. O gestor revisa a orientação, conversa com o colaborador e registra o que foi combinado.
+4. O RH acompanha os resultados.
+
+---
+
+## 5. Fluxo da Solução
+
+1. **Dados de RH:** histórico de colaboradores.
+2. **Preparação:** limpeza da base, análise exploratória e criação de features.
+3. **Modelo preditivo (XGBoost):** calcula a nota de risco de pedido de demissão.
+4. **Lista de prioridade:** colaboradores acima do limiar, com os fatores que pesaram na nota.
+5. **Co-piloto (proposta):** gera a orientação para a conversa a partir da nota e dos fatores.
+6. **Gestor:** conversa 1:1 preventiva, ações de retenção e PDI.
 
 ---
 
 ## 6. Métricas
 
-### 6.1 Métricas Técnicas do Modelo
-* **Recall (~59.7%):** Assegura que a grande maioria dos potenciais desligamentos seja capturada pelo radar preventivo.
-* **Precision (~24.9%):** Controla os alarmes falsos, garantindo que 1 em cada 4 indicações seja um caso crítico real.
-* **PR-AUC (0.19):** Métrica de escolha para avaliação em cenários com desbalanceamento severo de classes.
+**Métricas do modelo:** Recall (quantos pedidos de demissão o modelo encontra), Precision (quantos dos apontados realmente saem), F1 e PR-AUC. Na base de teste: Recall de 48%, Precision de 23% e PR-AUC de 0,179. Escolher 163 pessoas ao acaso encontraria pouco mais de 1 pedido de demissão; a lista do modelo encontrou 37.
 
-### 6.2 Métricas de Negócio e Indicadores de Sucesso
-* **Redução na Taxa de Turnover Voluntário:** Meta de redução relativa de **15% a 25%** nos primeiros 12 meses nas lojas que implementarem o programa.
-* **Custo de Reposição Evitado (*Cost-per-Hire*):** Substituir um colaborador de loja custa em média 6 meses de remuneração (~R\$ 15.000). A retenção de 30 colaboradores por ano gera uma economia direta de **R\$ 450.000**.
-* **Taxa de Aderência ao PDI:** Meta de **no mínimo 80%** de colaboradores alertados iniciando a trilha de capacitação dentro de 30 dias.
-* **Taxa de Eficácia da Abordagem 1:1:** % de colaboradores que permaneceram ativos 6 meses após a reunião de alinhamento com a liderança.
+**Métricas de negócio que acompanharíamos** (as metas dependem de dados que a base não tem, como custo de contratação e salário):
+* Taxa de pedidos de demissão nas lojas que usam a plataforma, comparada com as que não usam.
+* % de colaboradores da lista que continuam na empresa 6 meses depois da conversa.
+* % de colaboradores abordados que começaram o PDI em até 30 dias.
+* Recall e Precision acompanhados mês a mês, para perceber se o modelo está piorando.
 
 ---
 
-## 7. Matriz de Riscos, Limitações e Governança Ética
+## 7. Riscos e Limitações
 
-| Eixo de Risco | Descrição do Risco | Estratégia de Mitigação Adotada |
-| :--- | :--- | :--- |
-| **1. Qualidade dos Dados** | Ausência de variáveis de sentimento, remuneração, horas extras e avaliação de desempenho na base histórica. | Projeto piloto prevê integração com o ERP de folha e HRIS; recomendação de enriquecimento contínuo da base. |
-| **2. Viés Algorítmico (*Ageism*)** | O modelo pode rotular jovens desproporcionalmente como instáveis devido ao peso de `age`. | Auditorias semestrais de equidade (*disparate impact*); proibição absoluta de usar o modelo para descartar candidatos jovens. |
-| **3. Privacidade (LGPD)** | Vazamento de scores de risco e anotações pessoais de colaboradores. | Acesso estrito por controle de perfil (RBAC) restrito ao BP e gestor direto imediato; anonimização em relatórios executivos. |
-| **4. Segurança da Informação** | Vazamento de dados internos de headcount para modelos generativos públicos. | Uso obrigatório de APIs corporativas com política de retenção zero (*Zero-Data Retention Policy*) e criptografia de ponta a ponta. |
-| **5. Alucinações da IA** | O LLM inventar motivos não embasados nos dados (ex: assumir atrito salarial inexistente). | *Grounding* estrito no payload JSON fornecido e parametrização com baixa temperatura para geração factual. |
-| **6. Interpretação Incorreta** | Gestor interpretar risco de 70% como demissão consumada e retaliar o funcionário. | Treinamento obrigatório da liderança reforçando que o alerta é convite ao acolhimento e mentoria, nunca uma punição. |
-| **7. Dependência Excessiva** | Líderes deixarem de ouvir a equipe no dia a dia e só atuarem quando o algoritmo disparar alerta. | Princípio inegociável de **Human-in-the-Loop**: a IA é um copiloto consultivo, e a escuta ativa da liderança é insubstituível. |
+1. **Qualidade dos dados:** faltam salário, desempenho, horas extras e clima. Isso limita o modelo.
+2. **Viés de idade:** idade e tempo de casa são os fatores mais fortes. O modelo nunca deve ser usado para recusar candidatos jovens, negar promoções ou justificar desligamentos.
+3. **Privacidade (LGPD):** a nota de risco é um dado pessoal. Só o BP responsável e o gestor direto deveriam ver, e o colaborador tem direito de saber e pedir revisão de decisões baseadas em tratamento automatizado.
+4. **Segurança:** os dados enviados ao co-piloto precisam ficar em um ambiente seguro, sem uso para treinar modelos públicos.
+5. **Erros da IA generativa:** ela pode inventar motivos que não estão nos dados (por exemplo, insatisfação com salário). Por isso o prompt limita a resposta ao pacote de dados e o gestor revisa tudo antes da conversa.
+6. **Interpretação errada da nota:** se o gestor achar que a pessoa "já vai sair", pode parar de investir nela e provocar a saída.
+7. **Dependência da ferramenta:** a decisão é sempre de uma pessoa. Conversar com a equipe não pode depender de um alerta.
 
 ---
 
-## 8. Resposta ao Desafio Adicional
+## 8. Desafio Adicional
 
-> **"Se esta solução fosse colocada em produção amanhã, qual seria o maior risco de utilizá-la para apoiar decisões reais?"**
+> *"Se esta solução fosse colocada em produção amanhã, qual seria o maior risco de utilizá-la para apoiar decisões reais?"*
 
-### Resposta Oficial do Squad 4:
-O maior risco de implementar a solução em produção amanhã seria a ocorrência da **profecia auto-realizável provocada pelo viés punitivo da liderança, combinada à discriminação por idade (*ageism*)**.
+Para nós, o maior risco é a **nota de risco ser interpretada de forma errada, junto com o viés de idade**.
 
-1. **Aspecto Técnico:** Devido ao forte desbalanceamento da base, o modelo calibrado possui uma Precisão de ~25% para sustentar um Recall de ~60%. Isso significa que, a cada 4 colaboradores sinalizados como alto risco, 3 **não** pediriam demissão naquele momento.
-2. **Aspecto de Negócio:** Se um gestor de loja receber a lista de risco e adotar uma postura de desconfiança ou retaliação — deixando de incluir o colaborador em treinamentos, negando promoções ou transferências sob a justificativa de que 'ele já vai sair mesmo' —, a própria atitude de isolamento da liderança empurrará o colaborador para fora da empresa, criando o turnover que o modelo apenas previu.
-3. **Aspecto Ético:** Como o modelo atribui grande peso a colaboradores jovens com pouco tempo de casa, decisões precipitadas puniriam de forma discriminatória a juventude da empresa.
+* **Técnico:** com o limiar que escolhemos, o modelo encontra 48% dos pedidos de demissão, mas só 23% dos apontados realmente saem. Ou seja, de cada 4 pessoas na lista, cerca de 3 não pediriam demissão.
+* **Gestão:** se o gestor usar a lista de forma punitiva (deixar a pessoa fora de treinamentos ou negar uma promoção porque "ela vai sair mesmo"), ele mesmo pode provocar a saída que o modelo previu.
+* **Ético:** como o modelo dá muito peso à pouca idade, decisões apressadas prejudicariam justamente os colaboradores mais jovens.
 
-**Diretriz de Mitigação Adotada:** A plataforma Talent Retention AI foi desenhada sob a premissa inegociável de **Human-in-the-Loop**. A ferramenta é um instrumento de **cuidado, mentoria e desenvolvimento de carreira (PDI)**. Seu uso é expressamente proibido para justificar demissões, cortes de oportunidades ou sanções disciplinares.
+Por isso, a solução foi pensada só para acolhimento e desenvolvimento. Ela não deve ser usada para justificar demissões, cortar oportunidades ou aplicar punições.
 
 ---
 
-## 9. Roteiro para a Apresentação Final (Pitch do Squad 4)
+## 9. Roteiro para a Apresentação
 
-| Pergunta do Pitch | Resposta Objetiva do Squad 4 |
-| :--- | :--- |
-| **1. Qual problema estamos resolvendo?** | O alto custo e a perda de talentos causados pelo turnover voluntário reativo em lojas físicas da rede varejista. |
-| **2. Quais dados utilizamos?** | Histórico de 10 anos de colaboradores (`MFG10YearTerminationData.csv`), tratando anomalias de datas e focando em pedidos voluntários de demissão. |
-| **3. O que o modelo preditivo consegue prever?** | A probabilidade de um colaborador pedir demissão no ano corrente, com base em idade, tempo de casa e cargo operacional. |
-| **4. Como avaliamos se o modelo é bom?** | Através de Recall (~60%) e PR-AUC (0.19) com limiar calibrado no XGBoost, superando o modelo ingênuo que acerta 99% mas é inútil. |
-| **5. Como a IA Generativa utiliza essa previsão?** | Ela recebe o score e o perfil do colaborador e gera um parecer humanizado: síntese de risco, roteiro de conversa 1:1, ações de retenção e PDI de 90 dias. |
-| **6. Que decisão ou ação a solução recomenda?** | Recomenda que o gestor realize uma reunião 1:1 empática de mentoria e inicie um plano de capacitação e alternância de tarefas antes do colaborador pedir demissão. |
-| **7. Qual valor essa solução gera para o negócio?** | Redução de até 25% no turnover voluntário de lojas, gerando uma economia estimada de até R\$ 450 mil/ano em custos de reposição e preservando o know-how de atendimento. |
-| **8. Quais são os riscos e limitações?** | O risco da profecia auto-realizável e discriminação por idade, mitigado pela proibição de uso punitivo e foco estrito em acolhimento e desenvolvimento (*Human-in-the-Loop*). |
+| Pergunta | Resposta |
+| :-- | :-- |
+| Qual problema estamos resolvendo? | Os pedidos de demissão nas lojas da rede, que hoje só são tratados depois que acontecem. |
+| Quais dados utilizamos? | Histórico de 10 anos de colaboradores (`MFG10YearTerminationData.csv`), depois de corrigir datas falsas, erros de grafia e duplicidades. |
+| O que o modelo consegue prever? | Uma nota de risco de o colaborador pedir demissão naquele ano, a partir de idade, tempo de casa, cargo, departamento e loja. |
+| Como avaliamos se o modelo é bom? | Por Recall, Precision e PR-AUC, não pela acurácia. Com o limiar ajustado, ele encontra 48% dos pedidos de demissão, e 1 em cada 4 apontados realmente sai. |
+| Como a IA generativa usa a previsão? | Recebe a nota e os fatores calculados pelo modelo e prepara o gestor para a conversa: síntese do risco, roteiro 1:1, ações de retenção e PDI. Ainda é uma proposta, sem conexão com a IA. |
+| Que ação a solução recomenda? | Uma conversa 1:1 de acolhimento e um plano de desenvolvimento antes que o colaborador decida sair. |
+| Qual valor gera para o negócio? | Permite focar a retenção em um grupo pequeno: a lista do modelo é cerca de 29 vezes mais certeira que escolher pessoas ao acaso. O ganho financeiro precisaria ser medido com dados de custo de contratação. |
+| Quais são os riscos e limitações? | Uso punitivo da nota e viés de idade, além da falta de dados como salário e clima. Por isso a decisão final é sempre do gestor e do RH. |
