@@ -176,17 +176,3 @@ Para nós, o maior risco é a **nota de risco ser interpretada de forma errada, 
 
 Por isso, a solução foi pensada só para acolhimento e desenvolvimento. Ela não deve ser usada para justificar demissões, cortar oportunidades ou aplicar punições.
 
----
-
-## 9. Roteiro para a Apresentação
-
-| Pergunta | Resposta |
-| :-- | :-- |
-| Qual problema estamos resolvendo? | Os pedidos de demissão nas lojas da rede, que hoje só são tratados depois que acontecem. |
-| Quais dados utilizamos? | Histórico de 10 anos de colaboradores (`MFG10YearTerminationData.csv`), depois de corrigir datas falsas, erros de grafia e duplicidades. |
-| O que o modelo consegue prever? | Uma nota de risco de o colaborador pedir demissão naquele ano, a partir de idade, tempo de casa, cargo, departamento e loja. |
-| Como avaliamos se o modelo é bom? | Por Recall, Precision e PR-AUC, não pela acurácia. Com o limiar ajustado, ele encontra 48% dos pedidos de demissão, e 1 em cada 4 apontados realmente sai. |
-| Como a IA generativa usa a previsão? | Recebe a nota e os fatores calculados pelo modelo e prepara o gestor para a conversa: síntese do risco, roteiro 1:1, ações de retenção e PDI. Ainda é uma proposta, sem conexão com a IA. |
-| Que ação a solução recomenda? | Uma conversa 1:1 de acolhimento e um plano de desenvolvimento antes que o colaborador decida sair. |
-| Qual valor gera para o negócio? | Permite focar a retenção em um grupo pequeno: a lista do modelo é cerca de 29 vezes mais certeira que escolher pessoas ao acaso. O ganho financeiro precisaria ser medido com dados de custo de contratação. |
-| Quais são os riscos e limitações? | Uso punitivo da nota e viés de idade, além da falta de dados como salário e clima. Por isso a decisão final é sempre do gestor e do RH. |
